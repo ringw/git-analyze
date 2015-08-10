@@ -1,0 +1,5 @@
+#!/bin/bash
+
+SOURCE="${BASH_SOURCE[0]}"
+REFS=$(</dev/stdin)
+(echo "$REFS" | nohup "$(dirname "$SOURCE")"/branch-tests.py) &
