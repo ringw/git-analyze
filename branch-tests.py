@@ -53,12 +53,14 @@ try:
                     os.mkdir(commit_dir)
                 test_name = os.path.splitext(test_file)[0]
                 output_path = os.path.join(commit_dir, test_name)
-                with output_fh as open(output_path, 'wb'):
+                with open(output_path, 'wb') as output_fh:
                     output_fh.write(output)
+            except:
+                logging.warn('Test "%s" failed', test_file)
 
         shutil.rmtree(CLONE)
         CLONE = None
 finally:
-    os.unlink(pidfh)
+    os.unlink(PIDFILE)
     if CLONE is not None:
         shutil.rmtree(CLONE)
