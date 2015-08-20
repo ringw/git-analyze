@@ -38,7 +38,7 @@ try:
         COMMIT = subprocess.check_output(
             ['git', 'log', '-1', '--format=%h'], cwd=CLONE, env={}).strip()
         MASTER = subprocess.check_output(
-            ['git', 'log', '-1', '--format=%h', 'master'], cwd=CLONE,
+            ['git', 'log', '-1', '--format=%h', 'origin/master'], cwd=CLONE,
                 env={}).strip()
 
         # Check out in detached HEAD so we don't commit to the branch
@@ -59,7 +59,10 @@ try:
         for test_file in os.listdir(TESTS_PATH):
             full_path = os.path.join(TESTS_PATH, test_file)
             try:
-                output = subprocess.check_output([full_path], cwd=CLONE)
+                try:
+                    output = subprocess.check_output([full_path], cwd=CLONE)
+                except subprocess.CalledProcessError:
+                    continue
                 test_name = os.path.splitext(test_file)[0]
                 output_path = os.path.join(OUTPUT_DIR, test_name)
                 with open(output_path, 'wb') as output_fh:
