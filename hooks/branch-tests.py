@@ -53,23 +53,25 @@ try:
                                         cwd=CLONE, env={})
         if not os.path.exists(os.path.dirname(OUTPUT_DIR)):
             os.mkdir(os.path.dirname(OUTPUT_DIR))
-        os.mkdir(OUTPUT_DIR)
+        if not os.path.exists(OUTPUT_DIR):
+            os.mkdir(OUTPUT_DIR)
 
         SUCCESS = False
         for test_file in os.listdir(TESTS_PATH):
             full_path = os.path.join(TESTS_PATH, test_file)
+            if not (os.path.isfile(full_path) and os.access(full_path,os.X_OK)):
+                continue
             try:
-                try:
-                    output = subprocess.check_output([full_path], cwd=CLONE)
-                except subprocess.CalledProcessError:
-                    continue
-                test_name = os.path.splitext(test_file)[0]
-                output_path = os.path.join(OUTPUT_DIR, test_name)
-                with open(output_path, 'wb') as output_fh:
-                    output_fh.write(output)
-                SUCCESS = True
-            except:
+                output = subprocess.check_output([full_path], cwd=CLONE,
+                            env={"PYTHONPATH": CLONE})
+            except subprocess.CalledProcessError:
                 logging.warn('Test "%s" failed', test_file)
+                continue
+            test_name = os.path.splitext(test_file)[0]
+            output_path = os.path.join(OUTPUT_DIR, test_name)
+            with open(output_path, 'wb') as output_fh:
+                output_fh.write(output)
+            SUCCESS = True
 
         if SUCCESS:
             subprocess.check_call(['git', 'add', OUTPUT_DIR], cwd=CLONE, env={})
@@ -98,5 +100,4 @@ try:
 finally:
     os.unlink(PIDFILE)
     if CLONE is not None:
-        logging.error('clone ' + CLONE)
-        #shutil.rmtree(CLONE)
+        shutil.rmtree(CLONE)
