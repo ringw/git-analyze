@@ -57,13 +57,18 @@ try:
             os.mkdir(OUTPUT_DIR)
 
         SUCCESS = False
+        test_files = os.listdir(TESTS_PATH)
+        if 'setup' in test_files:
+            test_files.remove('setup')
+            subprocess.check_call([os.path.join(TESTS_PATH, 'setup')],
+                                  cwd=CLONE, env=os.environ)
         for test_file in os.listdir(TESTS_PATH):
             full_path = os.path.join(TESTS_PATH, test_file)
             if not (os.path.isfile(full_path) and os.access(full_path,os.X_OK)):
                 continue
             try:
                 output = subprocess.check_output([full_path], cwd=CLONE,
-                            env={"PYTHONPATH": CLONE})
+                            env=dict(os.environ, PYTHONPATH=CLONE))
             except subprocess.CalledProcessError:
                 logging.warn('Test "%s" failed', test_file)
                 continue
