@@ -43,8 +43,11 @@ try:
 
         # Check out in detached HEAD so we don't commit to the branch
         subprocess.check_call(['git', 'checkout', COMMIT], cwd=CLONE, env={})
+        # Check out tests from master but don't stage them
         subprocess.check_call(['git', 'checkout', MASTER,
                                '--', 'tests/git-stats'], cwd=CLONE, env={})
+        subprocess.check_call(['git', 'reset', '--', 'tests/git-stats'],
+                              cwd=CLONE, env={})
 
         TESTS_PATH = os.path.join(CLONE, 'tests', 'git-stats')
         OUTPUT_DIR = os.path.join(CLONE, 'results', 'git-stats')
@@ -62,43 +65,48 @@ try:
             test_files.remove('setup')
             subprocess.check_call([os.path.join(TESTS_PATH, 'setup')],
                                   cwd=CLONE, env=os.environ)
-        for test_file in os.listdir(TESTS_PATH):
+        for test_file in test_files:
             full_path = os.path.join(TESTS_PATH, test_file)
             if not (os.path.isfile(full_path) and os.access(full_path,os.X_OK)):
                 continue
-            try:
-                output = subprocess.check_output([full_path], cwd=CLONE,
-                            env=dict(os.environ, PYTHONPATH=CLONE))
-            except subprocess.CalledProcessError:
+
+            proc = subprocess.Popen([full_path], cwd=CLONE,
+                        env=dict(os.environ, PYTHONPATH=CLONE),
+                        stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            output, error = proc.communicate()
+            if proc.returncode != 0:
                 logging.warn('Test "%s" failed', test_file)
-                continue
             test_name = os.path.splitext(test_file)[0]
-            output_path = os.path.join(OUTPUT_DIR, test_name)
-            with open(output_path, 'wb') as output_fh:
-                output_fh.write(output)
-            SUCCESS = True
+            if proc.returncode == 0:
+                output_path = os.path.join(OUTPUT_DIR, test_name)
+                with open(output_path, 'wb') as output_fh:
+                    output_fh.write(output)
+            if len(error):
+                error_path = os.path.join(OUTPUT_DIR, test_name + '.err')
+                with open(error_path, 'wb') as error_fh:
+                    error_fh.write(error)
 
-        if SUCCESS:
-            subprocess.check_call(['git', 'add', OUTPUT_DIR], cwd=CLONE, env={})
-            MSG = 'git-stats tests for commit "%s" (tests from "%s")' % (
-                            COMMIT, MASTER)
-            AUTHOR = "Git-Stats <empty@example.com>"
-            # Repo config
-            subprocess.check_call(['git', 'config', 'user.name', 'Git Stats'],
-                                  cwd=CLONE, env={})
-            subprocess.check_call(['git', 'config', 'user.email', 'test@example.com'],
-                                  cwd=CLONE, env={})
-            subprocess.check_call(['git', 'commit', '-m', MSG],
-                                    cwd=CLONE, env={})
+        subprocess.check_call(['git', 'add', OUTPUT_DIR], cwd=CLONE, env={})
+        MSG = 'git-stats tests for commit "%s" (tests from "%s")' % (
+                        COMMIT, MASTER)
+        AUTHOR = "Git-Stats <empty@example.com>"
+        # Repo config
+        subprocess.check_call(['git', 'config', 'user.name', 'Git Stats'],
+                              cwd=CLONE, env={})
+        subprocess.check_call(['git', 'config', 'user.email', 'test@example.com'],
+                              cwd=CLONE, env={})
+        subprocess.check_call(['git', 'commit', '-m', MSG],
+                                cwd=CLONE, env={})
 
-            # More compact, easy-to-parse message
-            TAG_MSG = 'git-stats:%s:%s' % (COMMIT, MASTER)
-            TAG_NAME = 'git-stats_%s_%s' % (COMMIT, MASTER)
-            subprocess.check_call(['git', 'tag', '-a', '-m', TAG_MSG, TAG_NAME],
-                                  cwd=CLONE, env={})
-
-            subprocess.check_call(['git', 'push', '--tags', 'origin'],
-                                  cwd=CLONE, env={})
+        # More compact, easy-to-parse message
+        TAG_MSG = 'git-stats:%s:%s' % (COMMIT, MASTER)
+        TAG_NAME = 'git-stats_%s_%s' % (COMMIT, MASTER)
+        subprocess.check_call(['git', 'tag', '-f', '-a',
+                                      '-m', TAG_MSG, TAG_NAME],
+                              cwd=CLONE, env={})
+        # Fetch tags from inside the main repo
+        subprocess.check_call(['git', 'fetch', '--tags', CLONE],
+                              cwd=REPO, env={})
 
         shutil.rmtree(CLONE)
         CLONE = None
